@@ -2,7 +2,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProgressCustom } from "@/components/ui/custom-progress";
 import { Progress } from "@/components/ui/progress";
-import Image from "next/image";
 
 export default function Home() {
   return (

@@ -69,12 +69,12 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
         }
       }
     }),
-    // Você pode adicionar outros provedores aqui (Google, GitHub, etc.)
+
   ],
   // Configuração de sessões e tokens
   session: {
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 dias
+    maxAge: 7 * 24 * 60 * 60, // 7 dias
   },
   // Configuração de callbacks
   callbacks: {
@@ -154,8 +154,6 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     // Rotas protegidas
-    "/dashboard/:path*",
-    "/profile/:path*",
-    "/admin/:path*",
+    "/dashboard/:path*"
   ],
 };
