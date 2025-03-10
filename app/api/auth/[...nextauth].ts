@@ -1,23 +1,36 @@
 import NextAuth from "next-auth";
 import { JWT } from "next-auth/jwt";
-import Credentials from "next-auth/providers/credentials";
+import CredentialsProvider from "next-auth/providers/credentials";
 import { cookies } from "next/headers";
+import { NextRequest, NextResponse } from "next/server";
+
+// Definindo tipos para usuário
+export type UserRole = "admin" | "user";
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+}
 
 // Definindo a interface para o token JWT
-interface CustomJWT extends JWT {
+export interface CustomJWT extends JWT {
   accessToken?: string;
-  user?: {
-    id: string | undefined;
-    name: string | null | undefined;
-    email: string | undefined | null;
-    role: string;
-  };
+  user?: User;
+}
+
+// Definindo a interface para sessão
+export interface CustomSession {
+  user?: User;
+  accessToken?: string;
+  expires: string;
 }
 
 // Configuração do NextAuth
 export const { auth, handlers, signIn, signOut } = NextAuth({
   providers: [
-    Credentials({
+    CredentialsProvider({
       name: "credentials",
       credentials: {
         email: { label: "Email", type: "email" },
@@ -63,6 +76,47 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 dias
   },
+  // Configuração de callbacks
+  callbacks: {
+    async jwt({ token, user, account }) {
+      const customToken = token as CustomJWT;
+      
+      // Adiciona os dados do usuário ao token quando faz login
+      if (user) {
+        customToken.user = {
+          id: user.id as string,
+          name: user.name as string,
+          email: user.email as string,
+          role: (user as User).role || "user",
+        };
+        
+        // Se a API retornar um token, adicione-o ao JWT
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if (account?.provider === "credentials" && (user as any).accessToken) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          customToken.accessToken = (user as any).accessToken;
+        }
+      }
+      
+      return customToken;
+    },
+    async session({ session, token }) {
+      const customToken = token as CustomJWT;
+      const customSession = session as unknown as CustomSession;
+      
+      // Adiciona os dados do usuário à sessão
+      if (customToken.user) {
+        customSession.user = customToken.user;
+      }
+      
+      // Adiciona o token de acesso à sessão
+      if (customToken.accessToken) {
+        customSession.accessToken = customToken.accessToken;
+      }
+      
+      return customSession;
+    },
+  },
   // Configuração de cookies
   cookies: {
     sessionToken: {
@@ -82,3 +136,26 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
     error: "/error",
   },
 });
+
+// Middleware para proteger rotas
+export async function middleware(request: NextRequest) {
+  const cookieStore = cookies();
+  const sessionToken = (await cookieStore).get("next-auth.session-token");
+  
+  // Se não houver token na cookie, redireciona para login
+  if (!sessionToken) {
+    return Response.redirect(new URL("/login", request.url));
+  }
+  
+  return NextResponse.next();
+}
+
+// Configuração do middleware
+export const config = {
+  matcher: [
+    // Rotas protegidas
+    "/dashboard/:path*",
+    "/profile/:path*",
+    "/admin/:path*",
+  ],
+};
